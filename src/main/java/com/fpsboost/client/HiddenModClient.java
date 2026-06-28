@@ -21,7 +21,6 @@ public class HiddenModClient implements ClientModInitializer {
     private boolean placeEnabled = false;
     private boolean hitEnabled = false;
     private boolean lastIsAttackPressed = false;
-    private int hitDelay = 0;
 
     @Override
     public void onInitializeClient() {
@@ -43,22 +42,18 @@ public class HiddenModClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
 
-            // FAST AUTO-HIT (2 Ticks)
+            // 1-TICK AUTO-HIT (Ultra Fast)
             if (hitEnabled && client.options.attackKey.isPressed()) {
-                if (hitDelay > 0) { hitDelay--; } 
-                else {
-                    for (Entity e : client.world.getEntities()) {
-                        if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
-                            client.interactionManager.attackEntity(client.player, e);
-                            client.player.swingHand(Hand.MAIN_HAND);
-                            hitDelay = 2; // 2 tick ki speed
-                            break;
-                        }
+                for (Entity e : client.world.getEntities()) {
+                    if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
+                        client.interactionManager.attackEntity(client.player, e);
+                        client.player.swingHand(Hand.MAIN_HAND);
+                        // Hataya delay taaki 1-tick mein chale
                     }
                 }
             }
 
-            // FIXED PLACEMENT
+            // PLACEMENT FIX
             if (placeEnabled && client.interactionManager != null) {
                 ItemStack stack = client.player.getInventory().getMainHandStack();
                 boolean isAttackPressed = client.options.attackKey.isPressed();
@@ -69,9 +64,10 @@ public class HiddenModClient implements ClientModInitializer {
                         BlockPos targetPos = bhr.getBlockPos();
                         BlockPos abovePos = targetPos.up();
                         
-                        // Condition: Bedrock na ho aur upar ki jagah poori khali (air) ho
-                        if (!client.world.getBlockState(targetPos).isOf(Blocks.BEDROCK) 
-                            && client.world.getBlockState(abovePos).isAir()) {
+                        // Fix: Check agar upar wala block sacch mein AIR hai
+                        if (client.world.getBlockState(abovePos).getBlock() == Blocks.AIR 
+                            && !client.world.getBlockState(targetPos).isOf(Blocks.BEDROCK)
+                            && !client.world.getBlockState(targetPos).isOf(Blocks.OBSIDIAN)) { // Obsidian ke upar nahi lagega
                             
                             int obsSlot = findItem(client, Items.OBSIDIAN);
                             int crySlot = findItem(client, Items.END_CRYSTAL);
@@ -79,11 +75,9 @@ public class HiddenModClient implements ClientModInitializer {
                             if (obsSlot != -1 && crySlot != -1) {
                                 int oldSlot = client.player.getInventory().selectedSlot;
                                 
-                                // Obsidian Place
                                 client.player.getInventory().selectedSlot = obsSlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
                                 
-                                // Crystal Place
                                 client.player.getInventory().selectedSlot = crySlot;
                                 BlockHitResult cryHit = new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false);
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, cryHit);
@@ -102,4 +96,4 @@ public class HiddenModClient implements ClientModInitializer {
         for (int i = 0; i < 9; i++) if (client.player.getInventory().getStack(i).isOf(item)) return i;
         return -1;
     }
-                                        }
+}
