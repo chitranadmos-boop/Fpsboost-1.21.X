@@ -18,8 +18,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 
 public class HiddenModClient implements ClientModInitializer {
-    private boolean placeEnabled = false;
-    private boolean hitEnabled = false;
+    public static boolean placeEnabled = false;
+    public static boolean hitEnabled = false;
     private boolean lastIsAttackPressed = false;
 
     @Override
@@ -42,7 +42,6 @@ public class HiddenModClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
 
-            // 1. AUTO-HIT (Purely aggressive, no aim needed, 1-tick speed)
             if (hitEnabled && client.options.attackKey.isPressed()) {
                 for (Entity e : client.world.getEntities()) {
                     if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
@@ -52,10 +51,9 @@ public class HiddenModClient implements ClientModInitializer {
                 }
             }
 
-            // 2. FIXED PLACEMENT (Only places if the spot is empty)
             if (placeEnabled && client.interactionManager != null) {
-                ItemStack stack = client.player.getInventory().getMainHandStack();
                 boolean isAttackPressed = client.options.attackKey.isPressed();
+                ItemStack stack = client.player.getInventory().getMainHandStack();
 
                 if (stack.getItem() instanceof SwordItem && isAttackPressed && !lastIsAttackPressed) {
                     HitResult hit = client.crosshairTarget;
@@ -63,24 +61,19 @@ public class HiddenModClient implements ClientModInitializer {
                         BlockPos targetPos = bhr.getBlockPos();
                         BlockPos abovePos = targetPos.up();
                         
-                        // FIX: Agar upar already block hai (obsidian/crystal), toh code kuch nahi karega
-                        if (client.world.getBlockState(abovePos).isAir()) {
+                        if (client.world.getBlockState(abovePos).getBlock() == Blocks.AIR 
+                            && !client.world.getBlockState(targetPos).isOf(Blocks.BEDROCK)
+                            && !client.world.getBlockState(targetPos).isOf(Blocks.OBSIDIAN)) {
                             
                             int obsSlot = findItem(client, Items.OBSIDIAN);
                             int crySlot = findItem(client, Items.END_CRYSTAL);
                             
                             if (obsSlot != -1 && crySlot != -1) {
                                 int oldSlot = client.player.getInventory().selectedSlot;
-                                
-                                // Obsidian place karo
                                 client.player.getInventory().selectedSlot = obsSlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
-                                
-                                // Crystal place karo
                                 client.player.getInventory().selectedSlot = crySlot;
-                                BlockHitResult cryHit = new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false);
-                                client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, cryHit);
-                                
+                                client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false));
                                 client.player.getInventory().selectedSlot = oldSlot;
                             }
                         }
@@ -95,4 +88,4 @@ public class HiddenModClient implements ClientModInitializer {
         for (int i = 0; i < 9; i++) if (client.player.getInventory().getStack(i).isOf(item)) return i;
         return -1;
     }
-}
+            }
