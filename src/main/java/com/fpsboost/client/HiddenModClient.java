@@ -28,10 +28,12 @@ public class HiddenModClient implements ClientModInitializer {
             dispatcher.register(ClientCommandManager.literal("fpsboost")
                 .then(ClientCommandManager.literal("place").executes(context -> {
                     placeEnabled = !placeEnabled;
+                    context.getSource().sendFeedback(net.minecraft.text.Text.literal("§7[Ghost] Placement: " + (placeEnabled ? "§aON" : "§cOFF")));
                     return 1;
                 }))
                 .then(ClientCommandManager.literal("hit").executes(context -> {
                     hitEnabled = !hitEnabled;
+                    context.getSource().sendFeedback(net.minecraft.text.Text.literal("§7[Ghost] Auto-Hit: " + (hitEnabled ? "§aON" : "§cOFF")));
                     return 1;
                 }))
             );
@@ -40,7 +42,6 @@ public class HiddenModClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
 
-            // 1. AUTO-HIT (Priority High: Daba kar rakhne pe har tick pe check karega)
             if (hitEnabled && client.options.attackKey.isPressed()) {
                 for (Entity e : client.world.getEntities()) {
                     if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
@@ -50,32 +51,26 @@ public class HiddenModClient implements ClientModInitializer {
                 }
             }
 
-            // 2. PLACEMENT (Priority Medium: Sirf tabhi jab click release ho ya naya click ho)
             if (placeEnabled && client.interactionManager != null) {
                 boolean isAttackPressed = client.options.attackKey.isPressed();
-                
-                // Agar sword haath mein hai aur click daba rahe ho
-                if (client.player.getMainHandStack().getItem() instanceof SwordItem && isAttackPressed && !lastIsAttackPressed) {
+                ItemStack stack = client.player.getInventory().getMainHandStack();
+
+                if (stack.getItem() instanceof SwordItem && isAttackPressed && !lastIsAttackPressed) {
                     HitResult hit = client.crosshairTarget;
-                    if (hit instanceof BlockHitResult bhr) {
+                    if (hit != null && hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult bhr) {
                         BlockPos targetPos = bhr.getBlockPos();
                         BlockPos abovePos = targetPos.up();
                         
-                        // Check: Agar upar kuch nahi hai, tabhi place karo
                         if (client.world.getBlockState(abovePos).getBlock() == Blocks.AIR) {
                             int obsSlot = findItem(client, Items.OBSIDIAN);
                             int crySlot = findItem(client, Items.END_CRYSTAL);
                             
                             if (obsSlot != -1 && crySlot != -1) {
                                 int oldSlot = client.player.getInventory().selectedSlot;
-                                
-                                // Action: Obsidian + Crystal
                                 client.player.getInventory().selectedSlot = obsSlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
-                                
                                 client.player.getInventory().selectedSlot = crySlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false));
-                                
                                 client.player.getInventory().selectedSlot = oldSlot;
                             }
                         }
