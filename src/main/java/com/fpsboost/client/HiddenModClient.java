@@ -21,7 +21,7 @@ public class HiddenModClient implements ClientModInitializer {
     private boolean placeEnabled = false;
     private boolean hitEnabled = false;
     private boolean lastIsAttackPressed = false;
-    private int hitDelay = 0; // Delay timer
+    private int hitDelay = 0;
 
     @Override
     public void onInitializeClient() {
@@ -41,28 +41,25 @@ public class HiddenModClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null || client.world == null || client.interactionManager == null) return;
+            if (client.player == null || client.world == null) return;
 
-            // FIX: Auto-Hit Delay aur FOV check (Sirf wahi break karega jo saamne hai)
+            // FAST AUTO-HIT (2 Ticks)
             if (hitEnabled && client.options.attackKey.isPressed()) {
                 if (hitDelay > 0) { hitDelay--; } 
                 else {
-                    for (Entity entity : client.world.getEntities()) {
-                        // Range kam kardi (4.5 blocks) aur sirf wahi break karega jise tum dekh rahe ho (Raytrace)
-                        if (entity instanceof EndCrystalEntity && client.player.squaredDistanceTo(entity) <= 20.25) {
-                            if (client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.ENTITY) {
-                                client.interactionManager.attackEntity(client.player, entity);
-                                client.player.swingHand(Hand.MAIN_HAND);
-                                hitDelay = 5; // 5 tick ka delay taaki server kick na kare
-                                break; 
-                            }
+                    for (Entity e : client.world.getEntities()) {
+                        if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
+                            client.interactionManager.attackEntity(client.player, e);
+                            client.player.swingHand(Hand.MAIN_HAND);
+                            hitDelay = 2; // 2 tick ki speed
+                            break;
                         }
                     }
                 }
             }
 
-            // FIX: Placement Logic
-            if (placeEnabled) {
+            // FIXED PLACEMENT
+            if (placeEnabled && client.interactionManager != null) {
                 ItemStack stack = client.player.getInventory().getMainHandStack();
                 boolean isAttackPressed = client.options.attackKey.isPressed();
 
@@ -72,20 +69,25 @@ public class HiddenModClient implements ClientModInitializer {
                         BlockPos targetPos = bhr.getBlockPos();
                         BlockPos abovePos = targetPos.up();
                         
-                        // Sirf hawa mein place karega, obsidian ke upar nahi
+                        // Condition: Bedrock na ho aur upar ki jagah poori khali (air) ho
                         if (!client.world.getBlockState(targetPos).isOf(Blocks.BEDROCK) 
                             && client.world.getBlockState(abovePos).isAir()) {
                             
-                            int obsSlot = findItemInHotbar(client, Items.OBSIDIAN);
-                            int crySlot = findItemInHotbar(client, Items.END_CRYSTAL);
+                            int obsSlot = findItem(client, Items.OBSIDIAN);
+                            int crySlot = findItem(client, Items.END_CRYSTAL);
                             
                             if (obsSlot != -1 && crySlot != -1) {
                                 int oldSlot = client.player.getInventory().selectedSlot;
+                                
+                                // Obsidian Place
                                 client.player.getInventory().selectedSlot = obsSlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
+                                
+                                // Crystal Place
                                 client.player.getInventory().selectedSlot = crySlot;
                                 BlockHitResult cryHit = new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false);
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, cryHit);
+                                
                                 client.player.getInventory().selectedSlot = oldSlot;
                             }
                         }
@@ -96,8 +98,8 @@ public class HiddenModClient implements ClientModInitializer {
         });
     }
 
-    private int findItemInHotbar(MinecraftClient client, net.minecraft.item.Item item) {
+    private int findItem(MinecraftClient client, net.minecraft.item.Item item) {
         for (int i = 0; i < 9; i++) if (client.player.getInventory().getStack(i).isOf(item)) return i;
         return -1;
     }
-}
+                                        }
