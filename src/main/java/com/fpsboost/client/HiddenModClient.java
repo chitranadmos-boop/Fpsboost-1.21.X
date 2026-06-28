@@ -21,6 +21,7 @@ public class HiddenModClient implements ClientModInitializer {
     private boolean placeEnabled = false;
     private boolean hitEnabled = false;
     private boolean lastIsAttackPressed = false;
+    private int hitDelay = 0; // Delay timer
 
     @Override
     public void onInitializeClient() {
@@ -42,17 +43,25 @@ public class HiddenModClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null || client.interactionManager == null) return;
 
-            // FIX: Auto-Hit Crystal (Sirf jab Attack button daba ho)
+            // FIX: Auto-Hit Delay aur FOV check (Sirf wahi break karega jo saamne hai)
             if (hitEnabled && client.options.attackKey.isPressed()) {
-                for (Entity entity : client.world.getEntities()) {
-                    if (entity instanceof EndCrystalEntity && client.player.squaredDistanceTo(entity) <= 16) {
-                        client.interactionManager.attackEntity(client.player, entity);
-                        client.player.swingHand(Hand.MAIN_HAND);
+                if (hitDelay > 0) { hitDelay--; } 
+                else {
+                    for (Entity entity : client.world.getEntities()) {
+                        // Range kam kardi (4.5 blocks) aur sirf wahi break karega jise tum dekh rahe ho (Raytrace)
+                        if (entity instanceof EndCrystalEntity && client.player.squaredDistanceTo(entity) <= 20.25) {
+                            if (client.crosshairTarget != null && client.crosshairTarget.getType() == HitResult.Type.ENTITY) {
+                                client.interactionManager.attackEntity(client.player, entity);
+                                client.player.swingHand(Hand.MAIN_HAND);
+                                hitDelay = 5; // 5 tick ka delay taaki server kick na kare
+                                break; 
+                            }
+                        }
                     }
                 }
             }
 
-            // FIX: Sword Placement Logic (Sirf khali jagah pe)
+            // FIX: Placement Logic
             if (placeEnabled) {
                 ItemStack stack = client.player.getInventory().getMainHandStack();
                 boolean isAttackPressed = client.options.attackKey.isPressed();
@@ -63,7 +72,7 @@ public class HiddenModClient implements ClientModInitializer {
                         BlockPos targetPos = bhr.getBlockPos();
                         BlockPos abovePos = targetPos.up();
                         
-                        // Check: Target bedrock na ho aur upar ki jagah khaali ho
+                        // Sirf hawa mein place karega, obsidian ke upar nahi
                         if (!client.world.getBlockState(targetPos).isOf(Blocks.BEDROCK) 
                             && client.world.getBlockState(abovePos).isAir()) {
                             
@@ -72,16 +81,11 @@ public class HiddenModClient implements ClientModInitializer {
                             
                             if (obsSlot != -1 && crySlot != -1) {
                                 int oldSlot = client.player.getInventory().selectedSlot;
-                                
-                                // Place Obsidian
                                 client.player.getInventory().selectedSlot = obsSlot;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
-                                
-                                // Place Crystal
                                 client.player.getInventory().selectedSlot = crySlot;
                                 BlockHitResult cryHit = new BlockHitResult(bhr.getPos().add(0, 1, 0), Direction.UP, abovePos, false);
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, cryHit);
-                                
                                 client.player.getInventory().selectedSlot = oldSlot;
                             }
                         }
