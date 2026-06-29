@@ -13,8 +13,6 @@ import net.minecraft.item.SwordItem;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 
 public class HiddenModClient implements ClientModInitializer {
     public static boolean placeEnabled = false;
@@ -33,7 +31,6 @@ public class HiddenModClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
 
-            // 1. AUTO-HIT: Crystal milte hi turant attack
             if (hitEnabled && client.options.attackKey.isPressed()) {
                 for (Entity e : client.world.getEntities()) {
                     if (e instanceof EndCrystalEntity && client.player.squaredDistanceTo(e) <= 16) {
@@ -43,16 +40,12 @@ public class HiddenModClient implements ClientModInitializer {
                 }
             }
 
-            // 2. PLACEMENT: Sirf tabhi jab BlockTarget ho, AIR pe nahi
             if (placeEnabled && client.interactionManager != null) {
                 boolean isAttack = client.options.attackKey.isPressed();
                 if (client.player.getMainHandStack().getItem() instanceof SwordItem && isAttack && !lastIsAttackPressed) {
                     HitResult hit = client.crosshairTarget;
                     if (hit != null && hit.getType() == HitResult.Type.BLOCK && hit instanceof BlockHitResult bhr) {
-                        BlockPos targetPos = bhr.getBlockPos();
-                        BlockPos abovePos = targetPos.up();
-                        // SIRF AIR par place karega
-                        if (client.world.getBlockState(abovePos).isAir()) {
+                        if (client.world.getBlockState(bhr.getBlockPos().up()).isAir()) {
                             int obs = findItem(client, Items.OBSIDIAN);
                             int cry = findItem(client, Items.END_CRYSTAL);
                             if (obs != -1 && cry != -1) {
@@ -60,7 +53,7 @@ public class HiddenModClient implements ClientModInitializer {
                                 client.player.getInventory().selectedSlot = obs;
                                 client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr);
                                 client.player.getInventory().selectedSlot = cry;
-                                client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, new BlockHitResult(bhr.getPos().toCenterPos(), Direction.UP, abovePos, false));
+                                client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, bhr.withBlockPos(bhr.getBlockPos().up()));
                                 client.player.getInventory().selectedSlot = old;
                             }
                         }
