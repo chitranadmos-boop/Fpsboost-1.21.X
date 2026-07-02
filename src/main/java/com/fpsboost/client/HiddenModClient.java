@@ -20,24 +20,19 @@ public class HiddenModClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("fpsboost").executes(context -> {
                 enabled = !enabled;
-                context.getSource().sendFeedback(Text.literal("§7[Ghost] Status: " + (enabled ? "§aON" : "§cOFF")));
+                context.getSource().sendFeedback(Text.literal("§7[Ghost] Status: " + (enabled ? "§aON" : "§cOFF")), false);
                 return 1;
             }));
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!enabled || client.player == null) return;
+            if (!enabled || client.player == null || client.currentScreen == null) return;
 
             if (client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen) {
                 boolean isRightClicking = GLFW.glfwGetMouseButton(client.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
                 
                 if (isRightClicking && !rightClickPressed) {
-                    // Sahi tareeka: Inventory screenHandler se slot access karna
-                    Slot hoveredSlot = ((net.minecraft.client.gui.screen.ingame.InventoryScreen) client.currentScreen).getScreenHandler().getCursorStack().isEmpty() ? null : null;
-                    
-                    // Mouse ke niche wala slot dhundhne ke liye ye logic use karenge
                     for (Slot slot : client.player.currentScreenHandler.slots) {
-                        // Agar mouse us slot ke upar hai aur wahan Totem hai
                         if (isMouseOverSlot(client, slot) && slot.getStack().isOf(Items.TOTEM_OF_UNDYING)) {
                             client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 
                                 slot.id, 0, SlotActionType.SWAP, client.player);
@@ -50,10 +45,11 @@ public class HiddenModClient implements ClientModInitializer {
         });
     }
 
-    // Helper method to check if mouse is over a slot
     private boolean isMouseOverSlot(MinecraftClient client, Slot slot) {
-        int x = client.mouse.getX() * client.getWindow().getScaledWidth() / client.getWindow().getWidth();
-        int y = client.mouse.getY() * client.getWindow().getScaledHeight() / client.getWindow().getHeight();
-        return x >= slot.x && x <= slot.x + 16 && y >= slot.y && y <= slot.y + 16;
+        double mouseX = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
+        double mouseY = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
+        
+        return mouseX >= (double)slot.x && mouseX <= (double)slot.x + 16 && 
+               mouseY >= (double)slot.y && mouseY <= (double)slot.y + 16;
     }
 }
