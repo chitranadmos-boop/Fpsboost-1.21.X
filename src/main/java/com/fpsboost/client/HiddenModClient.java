@@ -11,7 +11,6 @@ import net.minecraft.item.Items;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.Vec3d;
 
 public class HiddenModClient implements ClientModInitializer {
     public static boolean enabled = false;
@@ -21,7 +20,8 @@ public class HiddenModClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("fpsboost").executes(context -> {
                 enabled = !enabled;
-                context.getSource().sendFeedback(Text.literal("§7[Ghost] Status: " + (enabled ? "§aON" : "§cOFF")), false);
+                // Correct 1.21.1 Feedback method
+                context.getSource().sendFeedback(Text.literal("§7[Ghost] Status: " + (enabled ? "§aON" : "§cOFF")));
                 return 1;
             }));
         });
@@ -37,9 +37,9 @@ public class HiddenModClient implements ClientModInitializer {
                 }
             }
 
-            // Totem Swap (Inventory check)
+            // Totem Swap (Using correct screenHandler method)
             if (client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen) {
-                if (client.player.getInventory().getCursorStack().isOf(Items.TOTEM_OF_UNDYING)) {
+                if (client.player.currentScreenHandler.getCursorStack().isOf(Items.TOTEM_OF_UNDYING)) {
                     client.interactionManager.clickSlot(client.player.currentScreenHandler.syncId, 45, 0, SlotActionType.SWAP, client.player);
                 }
             }
